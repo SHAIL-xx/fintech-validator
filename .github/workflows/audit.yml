@@ -10,16 +10,6 @@ jobs:
   infrastructure-audit:
     runs-on: ubuntu-latest
     
-    # SURESHOT FIX: Native GitHub Service Container
-    services:
-      localstack:
-        image: localstack/localstack:latest
-        ports:
-          - 4566:4566
-        env:
-          SERVICES: s3,ec2,iam,kms
-          DEFAULT_REGION: us-east-1
-          
     steps:
       - name: Checkout Codebase
         uses: actions/checkout@v4
@@ -34,8 +24,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Start LocalStack via Docker Compose
+        # This uses the docker-compose.yml already in your repository
+        run: docker compose up -d
+
       - name: Verify LocalStack Readiness
-        # Native curl polling guarantees port 4566 is accepting traffic
+        # Polling guarantees it is ready before Terraform starts
         run: |
           echo "Polling LocalStack health endpoint..."
           while ! curl -s http://127.0.0.1:4566/_localstack/health | grep -q "version"; do
