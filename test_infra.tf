@@ -7,11 +7,11 @@ provider "aws" {
   skip_metadata_api_check     = true
   skip_requesting_account_id  = true
 
-  endpoints {
-    s3  = "http://localhost:4566"
-    kms = "http://localhost:4566"
-    ec2 = "http://localhost:4566"
-    iam = "http://localhost:4566"
+ endpoints {
+    s3  = "http://127.0.0.1:4566"
+    kms = "http://127.0.0.1:4566"
+    ec2 = "http://127.0.0.1:4566"
+    iam = "http://127.0.0.1:4566"
   }
 }
 
