@@ -25,10 +25,10 @@ jobs:
           pip install -r requirements.txt
 
       - name: Start LocalStack Emulator
-        run: |
-          docker compose up -d
-          echo "Waiting for LocalStack to initialize..."
-          sleep 15
+        # SURESHOT FIX: This official action blocks execution until LocalStack is 100% healthy
+        uses: LocalStack/setup-localstack@v0.2.3
+        with:
+          image-tag: latest
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
@@ -39,5 +39,4 @@ jobs:
           terraform apply -auto-approve
 
       - name: Execute FinTech Validator
-        # This step will throw an exit code 1 if vulnerabilities are found, failing the build
         run: python3 validator.py
