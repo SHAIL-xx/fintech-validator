@@ -29,8 +29,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install boto3
 
-      - name: Start Floci Emulator (Isolated Container)
-        run: docker run -d --name localstack_main -p 4566:4566 flocicloud/floci:latest
+      - name: Start LocalStack (Authorized Container)
+        # This line replaces the failing Floci image and injects your secret token
+        run: docker run -d --name localstack_main -p 4566:4566 -e DEFAULT_REGION=us-east-1 -e LOCALSTACK_AUTH_TOKEN=${{ secrets.LOCALSTACK_AUTH_TOKEN }} localstack/localstack:latest
 
       - name: Verify LocalStack Readiness
         run: |
