@@ -19,14 +19,13 @@ resource "aws_kms_key" "wealthtech_key" {
   description = "KMS key for WealthTech secure vault"
 }
 
-# 1. Compliant Bucket
+# 1. Secure Vault Bucket
 resource "aws_s3_bucket" "secure_vault" {
   bucket = "wealthtech-secure-vault-local"
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "secure_vault_encryption" {
   bucket = aws_s3_bucket.secure_vault.id
-
   rule {
     apply_server_side_encryption_by_default {
       kms_master_key_id = aws_kms_key.wealthtech_key.arn
@@ -36,58 +35,63 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "secure_vault_encr
 }
 
 resource "aws_s3_bucket_public_access_block" "secure_vault_bpa" {
-  bucket = aws_s3_bucket.secure_vault.id
-
+  bucket                  = aws_s3_bucket.secure_vault.id
   block_public_acls       = true
   ignore_public_acls      = true
   block_public_policy     = true
   restrict_public_buckets = true
 }
 
-# 2. Non-Compliant Bucket
+# 2. PATCHED: Public Drop is now KMS Encrypted and Blocked
 resource "aws_s3_bucket" "public_drop" {
   bucket = "wealthtech-public-drop-local"
 }
 
-resource "aws_s3_bucket_public_access_block" "public_drop_bpa" {
+resource "aws_s3_bucket_server_side_encryption_configuration" "public_drop_encryption" {
   bucket = aws_s3_bucket.public_drop.id
+  rule {
+    apply_server_side_encryption_by_default {
+      kms_master_key_id = aws_kms_key.wealthtech_key.arn
+      sse_algorithm     = "aws:kms"
+    }
+  }
+}
 
-  block_public_acls       = false
-  ignore_public_acls      = false
-  block_public_policy     = false
-  restrict_public_buckets = false
-} 
+resource "aws_s3_bucket_public_access_block" "public_drop_bpa" {
+  bucket                  = aws_s3_bucket.public_drop.id
+  block_public_acls       = true # PATCHED
+  ignore_public_acls      = true # PATCHED
+  block_public_policy     = true # PATCHED
+  restrict_public_buckets = true # PATCHED
+}
 
-# 3. Complaint Security Groups (No SSH exposure)
-resource "aws_security_group" "complaint_sg" {
-  name = "wealthcare-secure-sg"
-  description = "Complaint SG allowing only HTTPS"
-
+# 3. Secure Security Group
+resource "aws_security_group" "compliant_sg" {
+  name        = "wealthtech-secure-sg"
+  description = "Compliant SG allowing only HTTPS"
   ingress {
-    from_port = 443
-    to_port = 443
-    protocol = "tcp"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
-# 4. Non-Complaint Security Group (Open SSH)
-resource "aws_security_group" "non_complaint_sg"{
-  name = "wealthcare-open-sg"
-  description = "Non-complaint SG with open SSH"
-
-  ingress{
-    from_port = 22
-    to_port = 22
-    protocol = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+# 4. PATCHED: SSH restricted to internal corporate IP range
+resource "aws_security_group" "non_compliant_sg" {
+  name        = "wealthtech-internal-sg"
+  description = "Compliant SG with internal SSH"
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/8"] # PATCHED
   }
-} 
+}
 
-# Standard Trust Policy for EC2
 data "aws_iam_policy_document" "assume_role" {
   statement {
-    effect = "Allow"
+    effect  = "Allow"
     actions = ["sts:AssumeRole"]
     principals {
       type        = "Service"
@@ -96,7 +100,7 @@ data "aws_iam_policy_document" "assume_role" {
   }
 }
 
-# 5. Compliant IAM Role (Restricted Access)
+# 5. Restricted Role
 resource "aws_iam_role" "compliant_role" {
   name               = "wealthtech-restricted-role"
   assume_role_policy = data.aws_iam_policy_document.assume_role.json
@@ -107,7 +111,7 @@ resource "aws_iam_role_policy_attachment" "compliant_attach" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
 }
 
-# 6. Non-Compliant IAM Role (AdministratorAccess)
+# 6. PATCHED: AdministratorAccess downgraded to EC2 ReadOnly
 resource "aws_iam_role" "non_compliant_role" {
   name               = "wealthtech-admin-role"
   assume_role_policy = data.aws_iam_policy_document.assume_role.json
@@ -115,6 +119,5 @@ resource "aws_iam_role" "non_compliant_role" {
 
 resource "aws_iam_role_policy_attachment" "non_compliant_attach" {
   role       = aws_iam_role.non_compliant_role.name
-  # WealthTech Violation: Full admin rights granted to a custom role
-  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess" 
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ReadOnlyAccess" # PATCHED
 }
