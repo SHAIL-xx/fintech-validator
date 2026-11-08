@@ -29,9 +29,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install boto3
 
-      - name: Start LocalStack (Isolated Container)
-        # Direct docker run guarantees no hidden repo configs can trigger Pro features
-        run: docker run -d --name localstack_main -p 4566:4566 -e DEFAULT_REGION=us-east-1 localstack/localstack:latest
+      - name: Start Floci Emulator (Isolated Container)
+        run: docker run -d --name localstack_main -p 4566:4566 flocicloud/floci:latest
 
       - name: Verify LocalStack Readiness
         run: |
