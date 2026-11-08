@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [ "main" ]
 
+# Prevents Boto3 and Terraform from hanging while looking for real credentials
+env:
+  AWS_ACCESS_KEY_ID: "test"
+  AWS_SECRET_ACCESS_KEY: "test"
+  AWS_DEFAULT_REGION: "us-east-1"
+
 jobs:
   infrastructure-audit:
     runs-on: ubuntu-latest
@@ -19,23 +25,31 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install Python Dependencies
+      - name: Install Dependencies
+        # Explicit installation guarantees no missing requirements.txt errors
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install boto3
 
       - name: Start LocalStack via Docker Compose
-        # This uses the docker-compose.yml already in your repository
         run: docker compose up -d
 
       - name: Verify LocalStack Readiness
-        # Polling guarantees it is ready before Terraform starts
+        # Bulletproof bounded polling loop with automatic log dumping on failure
         run: |
           echo "Polling LocalStack health endpoint..."
-          while ! curl -s http://127.0.0.1:4566/_localstack/health | grep -q "version"; do
+          for i in {1..30}; do
+            if curl -s http://127.0.0.1:4566/_localstack/health | grep -q "\"version\""; then
+              echo "LocalStack is fully operational."
+              exit 0
+            fi
             sleep 2
           done
-          echo "LocalStack is fully operational."
+          
+          echo "[FATAL] LocalStack failed to initialize within 60 seconds."
+          echo "Dumping container logs for debugging:"
+          docker compose logs
+          exit 1
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
@@ -47,3 +61,8 @@ jobs:
 
       - name: Execute FinTech Validator
         run: python3 validator.py
+
+      - name: Upload Compliance Report Artifact
+        # Ensures the JSON report is uploaded even if the python script fails the build
+        if: always()
+        uses: actions/upload-artifact
