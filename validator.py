@@ -163,17 +163,67 @@ def audit_security_groups(ec2_client):
         print(f"[FATAL] EC2 Execution failed: {e}")
         return []
 
+def audit_iam_roles(iam_client):
+    """
+    Audits all custom IAM roles for the Principle of Least Privilege.
+    Fails any role that has the 'AdministratorAccess' policy attached.
+    """
+    print(f"\n[{AUTHOR}] Executing FinTech IAM Privilege Audit...")
+    print("-" * 50)
+    
+    compliance_report = []
+    
+    try:
+        roles = iam_client.list_roles().get('Roles', [])
+        
+        # Filter out AWS default service roles to keep the audit focused on custom infrastructure
+        custom_roles = [role for role in roles if 'aws-service-role' not in role['Path']]
+        
+        for role in custom_roles:
+            role_name = role['RoleName']
+            is_compliant = True
+            
+            try:
+                # Retrieve all managed policies attached to the role
+                attached_policies = iam_client.list_attached_role_policies(RoleName=role_name).get('AttachedPolicies', [])
+                
+                for policy in attached_policies:
+                    if policy['PolicyArn'] == 'arn:aws:iam::aws:policy/AdministratorAccess':
+                        is_compliant = False
+                        break
+                        
+            except ClientError as e:
+                print(f"[ERROR] Failed to query policies for {role_name}: {e}")
+                continue
+            
+            status = "PASS" if is_compliant else "FAIL"
+            print(f"[{status}] IAM Role: {role_name:<25}")
+            
+            compliance_report.append({
+                "resource": role_name,
+                "type": "IAM_Least_Privilege",
+                "compliant": is_compliant
+            })
+            
+        return compliance_report
+        
+    except Exception as e:
+        print(f"[FATAL] IAM Execution failed: {e}")
+        return []
+
 if __name__ == "__main__":
     print(f"[{AUTHOR}] Initializing FinTech Compliance Validator...\n")
     
     s3 = get_local_client('s3')
     ec2 = get_local_client('ec2')
+    iam = get_local_client('iam')  # Initialize local IAM client
     
     # 1. Collect all audit data
     full_report = []
     full_report.extend(audit_s3_encryption(s3))
     full_report.extend(audit_s3_public_access(s3))
     full_report.extend(audit_security_groups(ec2))
+    full_report.extend(audit_iam_roles(iam))  # Run the IAM audit
     
     # 2. Export to JSON artifact
     report_file = "compliance_report.json"
@@ -187,7 +237,7 @@ if __name__ == "__main__":
     
     if failed_checks:
         print(f"[WARNING] {len(failed_checks)} compliance violations detected! Halting deployment.")
-        exit(1) # Tells the OS/Pipeline that the job failed
+        exit(1)
     else:
         print("[SUCCESS] Infrastructure is 100% compliant. Proceeding with deployment.")
-        exit(0) # Tells the OS/Pipeline that the job succeeded
+        exit(0)

@@ -11,6 +11,7 @@ provider "aws" {
     s3  = "http://localhost:4566"
     kms = "http://localhost:4566"
     ec2 = "http://localhost:4566"
+    iam = "http://localhost:4566"
   }
 }
 
@@ -82,3 +83,38 @@ resource "aws_security_group" "non_complaint_sg"{
     cidr_blocks = ["0.0.0.0/0"]
   }
 } 
+
+# Standard Trust Policy for EC2
+data "aws_iam_policy_document" "assume_role" {
+  statement {
+    effect = "Allow"
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["ec2.amazonaws.com"]
+    }
+  }
+}
+
+# 5. Compliant IAM Role (Restricted Access)
+resource "aws_iam_role" "compliant_role" {
+  name               = "wealthtech-restricted-role"
+  assume_role_policy = data.aws_iam_policy_document.assume_role.json
+}
+
+resource "aws_iam_role_policy_attachment" "compliant_attach" {
+  role       = aws_iam_role.compliant_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+}
+
+# 6. Non-Compliant IAM Role (AdministratorAccess)
+resource "aws_iam_role" "non_compliant_role" {
+  name               = "wealthtech-admin-role"
+  assume_role_policy = data.aws_iam_policy_document.assume_role.json
+}
+
+resource "aws_iam_role_policy_attachment" "non_compliant_attach" {
+  role       = aws_iam_role.non_compliant_role.name
+  # WealthTech Violation: Full admin rights granted to a custom role
+  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess" 
+}
