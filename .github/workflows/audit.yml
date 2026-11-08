@@ -65,4 +65,8 @@ jobs:
       - name: Upload Compliance Report Artifact
         # Ensures the JSON report is uploaded even if the python script fails the build
         if: always()
-        uses: actions/upload-artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: compliance-report
+          path: compliance_report.json
+          retention-days: 7
