@@ -1,0 +1,22 @@
+[
+    {
+        "resource": "fintech-masked-archive",
+        "type": "S3_Encryption",
+        "compliant": true
+    },
+    {
+        "resource": "fintech-masked-archive",
+        "type": "S3_Public_Access",
+        "compliant": true
+    },
+    {
+        "resource": "fintech-database-sg",
+        "type": "Network_Isolation",
+        "compliant": true
+    },
+    {
+        "resource": "MaskingWorkerRole",
+        "type": "IAM_Least_Privilege",
+        "compliant": true
+    }
+]
