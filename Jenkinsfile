@@ -2,28 +2,25 @@ pipeline {
     agent any
 
     stages {
-        stage('Source Checkout') {
+        stage('Container Orchestration') {
             steps {
-                echo 'Checking out the Cloud-Projects repository...'
-                checkout scm
+                echo 'Starting DevSecOps Docker Triad...'
+                sh 'docker compose up -d'
+                sh 'sleep 15' // Give LocalStack time to become fully healthy
             }
         }
-        stage('Security Linting') {
+        stage('Deploy Infrastructure') {
             steps {
-                echo 'Running static analysis on Python worker...'
-                sh 'echo "Static analysis passed."'
-            }
-        }
-        stage('Infrastructure Plan') {
-            steps {
-                echo 'Generating Terraform execution plan...'
-                sh 'terraform version'
+                echo 'Provisioning Terraform resources into LocalStack...'
+                sh 'terraform init'
+                sh 'terraform apply -auto-approve'
             }
         }
     }
     post {
         always {
-            echo 'Pipeline execution complete.'
+            echo 'Cleaning up DevSecOps lab to prevent port conflicts...'
+            sh 'docker compose down'
         }
     }
 }
