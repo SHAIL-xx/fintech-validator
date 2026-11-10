@@ -1,0 +1,29 @@
+services:
+  localstack:
+    image: localstack/localstack:3.4.0
+    container_name: localstack_main
+    ports:
+      - "4566:4566"
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+
+  postgress:
+    image: postgres:15-alpine
+    container_name: fintech-postgres 
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=jackal
+      - POSTGRES_PASSWORD=devsecops_secret
+      - POSTGRES_DB=fintech_vault
+  
+  worker:
+    build: .
+    image: pii-worker 
+    container_name: fintech-masking-worker 
+    environment:
+      - LOCALSTACK_URL=http://localstack:4566
+    depends_on:
+      - localstack 

@@ -6,9 +6,10 @@ import json
 import re 
 import time 
 import uuid 
+import os 
 
 # Configure LocalStack Clients 
-LOCALSTACK_URL = 'http://localhost:4566'
+LOCALSTACK_URL = os.getenv('LOCALSTACK_URL', 'http://localhost:4566')
 REGION = 'us-east-1'
 
 sqs = boto3.client('sqs', 
